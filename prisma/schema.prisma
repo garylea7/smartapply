@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String?
+  plan            Plan     @default(FREE)
+  authProviderId  String?  @unique
+  emailVerified   Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  usageLogs       UsageLog[]
+  analyses        Analysis[]
+  subscriptions   Subscription[]
+  webhooks        WebhookLog[]
+  
+  @@map("users")
+}
+
+enum Plan {
+  FREE
+  PRO
+  PRO_PLUS
+  LIFETIME
+}
+
+model UsageLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   @default("analyze")
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("usage_logs")
+}
+
+model Analysis {
+  id               String   @id @default(cuid())
+  userId           String
+  resumeText       String
+  jobDescription   String
+  atsScore         Int
+  missingKeywords  String   // JSON string
+  improvements     String   // JSON string
+  recommendations String   // JSON string
+  tailoredResume   String?  // JSON string (paid feature)
+  coverLetter      String?  // JSON string (paid feature)
+  interviewQA      String?  // JSON string (paid feature)
+  createdAt        DateTime @default(now())
+  
+  // Relations
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("analyses")
+}
+
+model Subscription {
+  id                 String            @id @default(cuid())
+  userId             String
+  provider           String            @default("stripe") // stripe, whop
+  status             String            @default("active") // active, cancelled, expired
+  currentPeriodEnd   DateTime?
+  customerId         String?
+  priceId            String?
+  subscriptionId     String?
+  plan               Plan
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  
+  // Relations
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("subscriptions")
+}
+
+model WebhookLog {
+  id          String   @id @default(cuid())
+  provider    String   // stripe, whop, getresponse
+  eventType   String
+  payload     String   // JSON string
+  statusCode  Int?
+  processed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId      String?
+  
+  @@map("webhook_logs")
+}
